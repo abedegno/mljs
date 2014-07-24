@@ -47,6 +47,8 @@ com.marklogic.widgets = window.com.marklogic.widgets || {};
  */
 com.marklogic.widgets.searchhelper = {};
 
+// TODO REMOVE PROCESSING CODE, USE THAT IN MLJS CORE's string helper functions
+
 /**
  * Converts a value in to separate words, splitting the words by dash, underscore, and CamelCase
  *
@@ -450,10 +452,22 @@ com.marklogic.widgets.advancedsearch.prototype.render = function() {
  * @param {string} container - The ID of the HTML element to render this widget within
  */
 com.marklogic.widgets.searchbar = function(container) {
+  console.log("MA: IN SEARCH BAR");
   if (undefined == com.marklogic.widgets.searchbar.list) {
     com.marklogic.widgets.searchbar.list = new Array(); // [containerID] -> searchbar widget
   }
   this.container = container;
+  this.containerElement = container;
+  if ("string"==typeof(container)) {
+    this.containerElement = document.getElementById(container);
+  }
+  if (undefined != this.containerElement.id) {
+    this.container = this.containerElement.id;
+  } else {
+    this.container = "somerandomsearchbarname";
+  }
+  console.log("MA: type: " + typeof(this.containerElement));
+  console.log("MA: id: " + this.container);
 
   this.ctx = new mljs.prototype.searchcontext();
 
@@ -461,22 +475,22 @@ com.marklogic.widgets.searchbar = function(container) {
 
   // draw widget within container
   mljs.defaultconnection.logger.debug("adding search bar html");
-  document.getElementById(container).innerHTML =
+  this.containerElement.innerHTML =
     "<div class='mljswidget well searchbar-inner'>" +
       "<div class='input-append input-prepend searchbar-queryrow'>" +
-        "<span class='searchbar-label' for='" + container + "-searchinput'>Search: </span>" +
-        "<input class='span2 searchbar-query' type='text' id='" + container + "-searchinput' value='' placeholder='Enter query' />" +
-        "<button class='btn btn-primary searchbar-submit' type='button' id='" + container + "-submit'>Search</button>" +
+        "<span class='searchbar-label' for='" + this.container + "-searchinput'>Search: </span>" +
+        "<input class='span2 searchbar-query' type='text' id='" + this.container + "-searchinput' value='' placeholder='Enter query' />" +
+        "<button class='btn btn-primary searchbar-submit' type='button' id='" + this.container + "-submit'>Search</button>" +
       "</div>" +
-      "<ul class='list-unstyled searchbar-autocomplete hidden' id='" + container + "-ac' tabindex='0'></ul>" +
+      "<ul class='list-unstyled searchbar-autocomplete hidden' id='" + this.container + "-ac' tabindex='0'></ul>" +
       "<div class='searchbar-errorrow hidden'></div>";
     "</div>";
   mljs.defaultconnection.logger.debug("adding submit click handler");
   var self = this;
-  document.getElementById(container + "-submit").onclick = function() {self._dosearch(self);}; // TODO Check this is valid
+  document.getElementById(this.container + "-submit").onclick = function() {self._dosearch(self);}; // TODO Check this is valid
   mljs.defaultconnection.logger.debug("added submit click handler");
 
-  var input = document.getElementById(container + "-searchinput");
+  var input = document.getElementById(this.container + "-searchinput");
 
   // now do enter click handler
   var searchKeyPress = function(e)
@@ -486,7 +500,7 @@ com.marklogic.widgets.searchbar = function(container) {
         if (e.keyCode == 13)
         {
           self.updateSuggestions(null);
-            document.getElementById(container + "-submit").click();
+            document.getElementById(self.container + "-submit").click();
         } else {
           // update suggestions
           self.ctx.doSuggest(input.value);
@@ -545,12 +559,12 @@ com.marklogic.widgets.searchbar.prototype.clear = function() {
 
 com.marklogic.widgets.searchbar.prototype.updateSuggestions = function(suggestions) {
   var ul = document.getElementById(this.container + "-ac");
-  if (undefined == suggestions || suggestions.suggestions.length == 0) {
+  if (undefined == suggestions || undefined == suggestions.suggestions || suggestions.suggestions.length == 0) {
     // hide ul
     com.marklogic.widgets.hide(ul,true);
   } else {
     // TODO show a drop down just below the search bar, but higher Z order (on top) that is selectable to complete the query
-    var cont = document.getElementById(this.container);
+    var cont = this.containerElement; // OLD - document.getElementById(this.container);
     var input = document.getElementById(this.container + "-searchinput");
 
     // draw items
@@ -881,11 +895,14 @@ com.marklogic.widgets.searchfacets.prototype._refresh = function() {
 
       for (var name in this.results.facets) { // TODO replace with introspection of objects within search facets (objects, not array)
         var facet = this.results.facets[name];
+        var values = facet.facetValues;
+
+        // could be null - e.g. geo boxes
+        if (undefined != values) {
         var facetStr = "<div class='panel panel-info searchfacets-facet' id='" + this.container + "-facetinfo-" + name + "'><div class='panel-heading searchfacets-facet-title'>" + fname(name) + "</div>" +
           "<div class='panel-body searchfacets-facet-values'>";
         var settings = this._getFacetSettings(name);
         var max = this.listSize;
-        var values = facet.facetValues;
         // sort facets first by count
         bubbleSort(values, "count");
         var valuesCount = values.length;
@@ -940,6 +957,7 @@ com.marklogic.widgets.searchfacets.prototype._refresh = function() {
         facetStr += "</div></div>";
         if (!(0 == valuesCount && this.hideEmptyFacets)) {
           str += facetStr;
+        }
         }
       }
     }
@@ -1156,6 +1174,15 @@ com.marklogic.widgets.searchfacets.prototype.updateSelectedFacets = function(fac
  */
 com.marklogic.widgets.searchresults = function(container) {
   this.container = container;
+  this.containerElement = container;
+  if ("string"==typeof(container)) {
+    this.containerElement = document.getElementById(container);
+  }
+  if (undefined != this.containerElement.id) {
+    this.container = this.containerElement.id;
+  } else {
+    this.container = "somerandomsearchresultsname";
+  }
 
   this.ctx = mljs.defaultconnection.createSearchContext();
 
@@ -1209,6 +1236,13 @@ com.marklogic.widgets.searchresults.prototype.setConfiguration = function(config
   for (var p in config) {
     this[p] = config[p];
   }
+};
+
+/**
+ * Programmatically overrides the selection mode to be replace.
+ */
+com.marklogic.widgets.searchresults.prototype.setSelectionModeReplace = function() {
+  this.selectionMode = "replace";
 };
 
 /**
@@ -1436,6 +1470,15 @@ com.marklogic.widgets.searchlayouts = {};
 com.marklogic.widgets.searchlayouts.default = function(container) {
   // initialisation
   this.container = container;
+  this.containerElement = container;
+  if ("string"==typeof(container)) {
+    this.containerElement = document.getElementById(container);
+  }
+  if (undefined != this.containerElement.id) {
+    this.container = this.containerElement.id;
+  } else {
+    this.container = "somerandomsearchresultsname";
+  }
 
   this._areas = {};
   this._hasMessage = false;
@@ -1448,7 +1491,7 @@ com.marklogic.widgets.searchlayouts.default.prototype._init = function() {
   s += "<div class='title panel-heading searchresults-title'>Results</div>";
   s += "<div id='" + this.container + "-inner' class='searchresults-results mljsResultDefaultInner'></div>";
   s += "</div>";
-  document.getElementById(this.container).innerHTML = s;
+  this.containerElement.innerHTML = s;
 };
 com.marklogic.widgets.searchlayouts.default.prototype.reset = function() {
   // strip out all current content areas
@@ -3194,4 +3237,59 @@ com.marklogic.widgets.searchmetrics.prototype.updateResults = function(results) 
 
   // send output to webpage DOM (do not make multiple edits to the DOM - it's slower)
   document.getElementById(this.container).innerHTML = str;
+};
+
+
+
+
+
+
+
+
+
+com.marklogic.widgets.refreshsearch = function(container) {
+  this.container = container;
+
+  this._searchContext = null;
+
+  this._config = {
+    mode: "structured" // structured or content
+  };
+
+  var s = "<div class='mljswidget refreshsearch' id='" + this.container + "-outer'>";
+  s += "<button class='btn btn-primary glyphicon glyphicon-refresh' id='" + this.container + "-button'></button>";
+  s += "</div>";
+  document.getElementById(this.container).innerHTML = s;
+
+  var self = this;
+  document.getElementById(this.container + "-button").onclick = function() {
+    console.log("refreshsearch: Click");
+    if (null != self._searchContext) {
+      if ("structured" == self._config.mode) {
+        self._searchContext.contributeStructuredQuery(self.container,null); // forces search (without blank contributed search term)
+      } else {
+        // do simple query with last query value
+        self._doSimpleQuery(null); // forces default query // TODO make this last query, not just default
+      }
+    }
+  };
+};
+
+com.marklogic.widgets.refreshsearch.getConfigurationDefinition = function() {
+  return {
+    mode: {type: "enum", default: "structured", title: "Search Mode", description: "Are we executing a structured (or values) query, or content query?",
+      options: [
+        {value: "structured", title: "Structured", description: "Structured Query"},
+        {value: "content", title: "Content", description: "(Defualt) Content Query"}
+      ]}
+  };
+};
+
+
+com.marklogic.widgets.refreshsearch.prototype.setConfiguration = function(config) {
+  this._config = config;
+};
+
+com.marklogic.widgets.refreshsearch.prototype.setSearchContext = function(ctx) {
+  this._searchContext = ctx;
 };
